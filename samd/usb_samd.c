@@ -13,6 +13,8 @@
 
 #define USB_GCLK_GEN                    0
 
+extern bool led_on;
+
 void usb_init(){
 	uint32_t pad_transn, pad_transp, pad_trim;
 
@@ -62,6 +64,7 @@ void usb_init(){
 	memset(usb_endpoints, 0, usb_num_endpoints*sizeof(UsbDeviceDescriptor));
 	USB->DEVICE.DESCADD.reg = (uint32_t)(&usb_endpoints[0]);
 	USB->DEVICE.INTENSET.reg = USB_DEVICE_INTENSET_EORST;
+    USB->DEVICE.INTENSET.reg = USB_DEVICE_INTENSET_SOF;
 
 	usb_reset();
 }
@@ -127,6 +130,7 @@ inline void usb_reset_ep(uint8_t ep){
 }
 
 inline usb_bank usb_ep_start_out(uint8_t ep, uint8_t* data, usb_size len) {
+    // if (ep > 0) led_on = 1;
 	usb_endpoints[ep].DeviceDescBank[0].PCKSIZE.bit.MULTI_PACKET_SIZE = len;
 	usb_endpoints[ep].DeviceDescBank[0].PCKSIZE.bit.BYTE_COUNT = 0;
 	usb_endpoints[ep].DeviceDescBank[0].ADDR.reg = (uint32_t) data;
@@ -138,6 +142,7 @@ inline usb_bank usb_ep_start_out(uint8_t ep, uint8_t* data, usb_size len) {
 
 inline usb_bank usb_ep_start_in(uint8_t ep, const uint8_t* data, usb_size size, bool zlp) {
 	ep &= 0x3f;
+    // if (ep > 0) led_on = 1;
 	usb_endpoints[ep].DeviceDescBank[1].PCKSIZE.bit.AUTO_ZLP = zlp;
 	usb_endpoints[ep].DeviceDescBank[1].PCKSIZE.bit.MULTI_PACKET_SIZE = 0;
 	usb_endpoints[ep].DeviceDescBank[1].PCKSIZE.bit.BYTE_COUNT = size;
@@ -222,6 +227,8 @@ void USB_Handler() {
 	uint32_t summary = USB->DEVICE.EPINTSMRY.reg;
 	uint32_t status = USB->DEVICE.INTFLAG.reg;
 
+    // led_on = summary > 1;
+
 	if (status & USB_DEVICE_INTFLAG_EORST) {
 		USB->DEVICE.INTFLAG.reg = USB_DEVICE_INTFLAG_EORST;
 		usb_reset();
@@ -244,14 +251,22 @@ void USB_Handler() {
 		}
 	}
 
+    if (summary > 1) {
+    	usb_cb_completion(summary);
+    }
+
+    if (status & USB_DEVICE_INTFLAG_SOF) {
+        USB->DEVICE.INTFLAG.reg = USB_DEVICE_INTFLAG_SOF;
+        usb_cb_sof();
+        // led_on = 1;
+    }
+
 	for (int i=1; i<usb_num_endpoints; i++) {
 		if (summary & 1<<i) {
 			uint32_t flags = USB->DEVICE.DeviceEndpoint[i].EPINTFLAG.reg;
 			USB->DEVICE.DeviceEndpoint[i].EPINTENCLR.reg = flags;
 		}
 	}
-
-	usb_cb_completion();
 }
 
 void* samd_serial_number_string_descriptor() {

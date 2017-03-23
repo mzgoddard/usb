@@ -21,11 +21,14 @@ typedef uint8_t usb_bank;
 /// Callback on reset
 void usb_cb_reset(void);
 
+/// Callback on Start of Frame
+void usb_cb_sof(void);
+
 /// Callback when a setup packet is received
 void usb_cb_control_setup(void);
 
 /// Callback on a completion interrupt
-void usb_cb_completion(void);
+void usb_cb_completion(uint32_t summary);
 void usb_cb_control_in_completion(void);
 void usb_cb_control_out_completion(void);
 

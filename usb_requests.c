@@ -8,6 +8,8 @@ volatile uint8_t usb_configuration;
 uint16_t usb_ep0_in_size;
 const uint8_t* usb_ep0_in_ptr;
 
+extern bool led_on;
+
 void usb_ep0_in_multi(void) {
 	uint16_t tsize = usb_ep0_in_size;
 
@@ -28,6 +30,8 @@ void usb_ep0_in_multi(void) {
 
 void usb_handle_setup(void){
 	if ((usb_setup.bmRequestType & USB_REQTYPE_TYPE_MASK) == USB_REQTYPE_STANDARD){
+        // led_on = (usb_setup.bRequest & 0x04) > 0;
+        // led_on = usb_setup.bRequest == USB_REQ_GetStatus;
 		switch (usb_setup.bRequest){
 			case USB_REQ_GetStatus:
 				ep0_buf_in[0] = 0;
@@ -90,6 +94,13 @@ void usb_handle_setup(void){
 				} else {
 					return usb_ep0_stall();
 				}
+
+            case USB_REQ_SynchFrame:
+                // led_on = 1;
+                ep0_buf_in[0] = 0;
+                ep0_buf_in[1] = 0;
+                usb_ep0_in(2);
+                return usb_ep0_out();
 
 			default:
 				return usb_ep0_stall();
